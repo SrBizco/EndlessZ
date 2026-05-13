@@ -1,0 +1,21 @@
+{
+    "name": "EndlessZ.EditModeTests",
+    "rootNamespace": "EndlessZ.Tests",
+    "references": [
+        "EndlessZ.Runtime"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ],
+    "noEngineReferences": false
+}
