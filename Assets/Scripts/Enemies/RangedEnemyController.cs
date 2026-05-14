@@ -1,4 +1,5 @@
 using EndlessZ.Combat;
+using EndlessZ.Movement;
 using EndlessZ.Weapons;
 using UnityEngine;
 using UnityEngine.AI;
@@ -61,6 +62,7 @@ namespace EndlessZ.Enemies
         private bool hasMovementBoolParameter;
         private bool hasShootTriggerParameter;
         private EnemyVariantProfile variantProfile;
+        private MovementSpeedModifierTarget speedModifierTarget;
         private float speedMultiplier = 1f;
 
         public Transform Target => target;
@@ -74,6 +76,12 @@ namespace EndlessZ.Enemies
         {
             agent = GetComponent<NavMeshAgent>();
             animator = GetComponent<Animator>();
+            speedModifierTarget = GetComponent<MovementSpeedModifierTarget>();
+            if (speedModifierTarget == null)
+            {
+                speedModifierTarget = gameObject.AddComponent<MovementSpeedModifierTarget>();
+            }
+
             agent.updateRotation = false;
             CacheAnimatorParameters();
         }
@@ -86,6 +94,7 @@ namespace EndlessZ.Enemies
         private void Update()
         {
             AcquireTarget();
+            ApplyCurrentMovementSpeed();
             UpdateAnimatorMovement();
         }
 
@@ -151,7 +160,7 @@ namespace EndlessZ.Enemies
             }
 
             agent.isStopped = false;
-            agent.speed = patrolSpeed * speedMultiplier;
+            agent.speed = GetModifiedSpeed(patrolSpeed);
             SetNextPatrolDestination();
         }
 
@@ -189,7 +198,7 @@ namespace EndlessZ.Enemies
             }
 
             agent.isStopped = false;
-            agent.speed = chaseSpeed * speedMultiplier;
+            agent.speed = GetModifiedSpeed(chaseSpeed);
             AcquireTarget();
         }
 
@@ -236,7 +245,7 @@ namespace EndlessZ.Enemies
             }
 
             agent.isStopped = false;
-            agent.speed = retreatSpeed * speedMultiplier;
+            agent.speed = GetModifiedSpeed(retreatSpeed);
             SetRetreatDestination();
         }
 
@@ -545,6 +554,33 @@ namespace EndlessZ.Enemies
             variantProfile = GetComponent<EnemyVariantProfile>();
             speedMultiplier = variantProfile != null ? variantProfile.MovementSpeedMultiplier : 1f;
             agent.autoTraverseOffMeshLink = variantProfile != null && variantProfile.CanUseNavMeshLinks;
+        }
+
+        private void ApplyCurrentMovementSpeed()
+        {
+            if (IsDead || agent == null || agent.isStopped)
+            {
+                return;
+            }
+
+            switch (currentState)
+            {
+                case EnemyState.Patrol:
+                    agent.speed = GetModifiedSpeed(patrolSpeed);
+                    break;
+                case EnemyState.Chase:
+                    agent.speed = GetModifiedSpeed(chaseSpeed);
+                    break;
+                case EnemyState.Retreat:
+                    agent.speed = GetModifiedSpeed(retreatSpeed);
+                    break;
+            }
+        }
+
+        private float GetModifiedSpeed(float baseSpeed)
+        {
+            float zoneMultiplier = speedModifierTarget != null ? speedModifierTarget.CurrentMultiplier : 1f;
+            return baseSpeed * speedMultiplier * zoneMultiplier;
         }
     }
 }

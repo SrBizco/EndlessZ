@@ -1,3 +1,4 @@
+using EndlessZ.Movement;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -9,6 +10,7 @@ namespace EndlessZ.Player
         [SerializeField, Min(0f)] private float moveSpeed = 6f;
 
         private Rigidbody body;
+        private MovementSpeedModifierTarget speedModifierTarget;
         private Vector2 moveInput;
 
         public Vector2 MoveInput => moveInput;
@@ -23,6 +25,12 @@ namespace EndlessZ.Player
         private void Awake()
         {
             body = GetComponent<Rigidbody>();
+            speedModifierTarget = GetComponent<MovementSpeedModifierTarget>();
+            if (speedModifierTarget == null)
+            {
+                speedModifierTarget = gameObject.AddComponent<MovementSpeedModifierTarget>();
+            }
+
             body.useGravity = false;
             body.interpolation = RigidbodyInterpolation.Interpolate;
             body.constraints = RigidbodyConstraints.FreezeRotation;
@@ -35,7 +43,8 @@ namespace EndlessZ.Player
 
         private void FixedUpdate()
         {
-            Vector3 velocity = PlayerMovementMath.CalculateVelocity(moveInput, moveSpeed);
+            float modifiedSpeed = moveSpeed * speedModifierTarget.CurrentMultiplier;
+            Vector3 velocity = PlayerMovementMath.CalculateVelocity(moveInput, modifiedSpeed);
             body.linearVelocity = new Vector3(velocity.x, body.linearVelocity.y, velocity.z);
         }
 
