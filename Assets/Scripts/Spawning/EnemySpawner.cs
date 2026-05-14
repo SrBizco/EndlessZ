@@ -10,6 +10,7 @@ namespace EndlessZ.Spawning
 
         [Header("Prefabs")]
         [SerializeField] private GameObject enemyPrefab = null;
+        [SerializeField] private GameObject[] additionalEnemyPrefabs = new GameObject[0];
 
         [Header("Target")]
         [SerializeField] private LayerMask targetLayers = Physics.DefaultRaycastLayers;
@@ -47,12 +48,12 @@ namespace EndlessZ.Spawning
 
             nextSpawnTime = Time.time + spawnInterval;
 
-            if (!AcquireTarget() || enemyPrefab == null)
+            if (!AcquireTarget() || !TryGetRandomEnemyPrefab(out GameObject prefabToSpawn))
             {
                 return;
             }
 
-            TrySpawnEnemy();
+            TrySpawnEnemy(prefabToSpawn);
         }
 
         private bool AcquireTarget()
@@ -96,7 +97,7 @@ namespace EndlessZ.Spawning
             return target != null;
         }
 
-        private void TrySpawnEnemy()
+        private void TrySpawnEnemy(GameObject prefabToSpawn)
         {
             for (int i = 0; i < maxSpawnAttempts; i++)
             {
@@ -111,10 +112,62 @@ namespace EndlessZ.Spawning
                     continue;
                 }
 
-                GameObject enemy = Instantiate(enemyPrefab, hit.position, Quaternion.identity);
+                GameObject enemy = Instantiate(prefabToSpawn, hit.position, Quaternion.identity);
                 aliveEnemies.Add(enemy);
                 return;
             }
+        }
+
+        private bool TryGetRandomEnemyPrefab(out GameObject prefab)
+        {
+            int validCount = enemyPrefab != null ? 1 : 0;
+
+            for (int i = 0; i < additionalEnemyPrefabs.Length; i++)
+            {
+                if (additionalEnemyPrefabs[i] != null)
+                {
+                    validCount++;
+                }
+            }
+
+            if (validCount == 0)
+            {
+                prefab = null;
+                return false;
+            }
+
+            int selectedIndex = Random.Range(0, validCount);
+
+            if (enemyPrefab != null)
+            {
+                if (selectedIndex == 0)
+                {
+                    prefab = enemyPrefab;
+                    return true;
+                }
+
+                selectedIndex--;
+            }
+
+            for (int i = 0; i < additionalEnemyPrefabs.Length; i++)
+            {
+                GameObject candidate = additionalEnemyPrefabs[i];
+                if (candidate == null)
+                {
+                    continue;
+                }
+
+                if (selectedIndex == 0)
+                {
+                    prefab = candidate;
+                    return true;
+                }
+
+                selectedIndex--;
+            }
+
+            prefab = null;
+            return false;
         }
 
         private void RemoveMissingEnemies()

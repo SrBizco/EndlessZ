@@ -1,4 +1,5 @@
 using EndlessZ.Combat;
+using EndlessZ.Player;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -8,6 +9,7 @@ namespace EndlessZ.Weapons
     {
         [Header("References")]
         [SerializeField] private Transform firePoint = null;
+        [SerializeField] private PlayerAim aimSource = null;
         [SerializeField] private GameObject muzzleVfxPrefab = null;
         [SerializeField] private GameObject hitVfxPrefab = null;
 
@@ -37,6 +39,11 @@ namespace EndlessZ.Weapons
                 animator = GetComponentInParent<Animator>();
             }
 
+            if (aimSource == null)
+            {
+                aimSource = GetComponentInParent<PlayerAim>();
+            }
+
             CacheAnimatorParameters();
         }
 
@@ -62,13 +69,32 @@ namespace EndlessZ.Weapons
 
             Transform shotOrigin = firePoint != null ? firePoint : transform;
             Vector3 origin = shotOrigin.position;
-            Vector3 direction = shotOrigin.forward;
+            Vector3 direction = GetShotDirection(origin, shotOrigin);
+            Quaternion shotRotation = Quaternion.LookRotation(direction, Vector3.up);
 
             TriggerShootAnimation();
-            SpawnVfx(muzzleVfxPrefab, shotOrigin.position, shotOrigin.rotation, muzzleVfxLifetime);
+            SpawnVfx(muzzleVfxPrefab, shotOrigin.position, shotRotation, muzzleVfxLifetime);
             ApplyHit(origin, direction);
 
             return true;
+        }
+
+        private Vector3 GetShotDirection(Vector3 origin, Transform fallbackDirection)
+        {
+            if (aimSource != null && aimSource.TryGetAimDirectionFrom(origin, out Vector3 aimDirection))
+            {
+                return aimDirection;
+            }
+
+            Vector3 direction = fallbackDirection.forward;
+            direction.y = 0f;
+
+            if (direction.sqrMagnitude <= Mathf.Epsilon)
+            {
+                return transform.forward;
+            }
+
+            return direction.normalized;
         }
 
         private void ApplyHit(Vector3 origin, Vector3 direction)

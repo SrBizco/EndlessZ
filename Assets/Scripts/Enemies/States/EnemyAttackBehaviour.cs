@@ -1,14 +1,15 @@
+using EndlessZ.Enemies;
 using UnityEngine;
 
 namespace EndlessZ.Enemies.States
 {
-    public sealed class MeleeAttackBehaviour : StateMachineBehaviour
+    public sealed class EnemyAttackBehaviour : EnemyStateBehaviour
     {
-        private MeleeEnemyController controller;
+        private IEnemyStateController controller;
 
         public override void OnStateEnter(Animator animator, AnimatorStateInfo stateInfo, int layerIndex)
         {
-            controller = animator.GetComponentInParent<MeleeEnemyController>();
+            controller = GetStateController(animator);
             controller?.EnterAttack();
         }
 

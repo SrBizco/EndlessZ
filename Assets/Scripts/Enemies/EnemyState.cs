@@ -1,10 +1,11 @@
 namespace EndlessZ.Enemies
 {
-    public enum MeleeEnemyState
+    public enum EnemyState
     {
         Idle,
         Patrol,
         Chase,
+        Retreat,
         Attack,
         Death
     }

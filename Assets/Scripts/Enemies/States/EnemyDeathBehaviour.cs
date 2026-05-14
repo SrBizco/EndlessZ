@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace EndlessZ.Enemies.States
 {
-    public sealed class MeleeDeathBehaviour : StateMachineBehaviour
+    public sealed class EnemyDeathBehaviour : StateMachineBehaviour
     {
         private EnemyDeathAnimator deathAnimator;
 

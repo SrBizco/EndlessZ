@@ -15,6 +15,7 @@ namespace EndlessZ.Enemies
 
         private Health health;
         private MeleeEnemyController controller;
+        private RangedEnemyController rangedController;
         private bool isDead;
         private bool deathStateEntered;
 
@@ -22,6 +23,7 @@ namespace EndlessZ.Enemies
         {
             health = GetComponent<Health>();
             controller = GetComponent<MeleeEnemyController>();
+            rangedController = GetComponent<RangedEnemyController>();
 
             if (animator == null)
             {
@@ -53,6 +55,7 @@ namespace EndlessZ.Enemies
 
             isDead = true;
             controller?.MarkDead();
+            rangedController?.MarkDead();
         }
 
         public void EnterDeathState()

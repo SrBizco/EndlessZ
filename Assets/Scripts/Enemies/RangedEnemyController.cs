@@ -1,4 +1,5 @@
 using EndlessZ.Combat;
+using EndlessZ.Weapons;
 using UnityEngine;
 using UnityEngine.AI;
 
@@ -6,51 +7,65 @@ namespace EndlessZ.Enemies
 {
     [RequireComponent(typeof(NavMeshAgent))]
     [RequireComponent(typeof(Animator))]
-    public sealed class MeleeEnemyController : MonoBehaviour, IEnemyStateController
+    public sealed class RangedEnemyController : MonoBehaviour, IEnemyStateController
     {
         private const int MaxTargetHits = 16;
 
         [Header("References")]
         [SerializeField] private Transform target;
         [SerializeField] private Transform[] patrolPoints = new Transform[0];
+        [SerializeField] private Transform firePoint = null;
+        [SerializeField] private GameObject projectilePrefab = null;
 
         [Header("Detection")]
         [SerializeField] private LayerMask targetLayers = Physics.DefaultRaycastLayers;
-        [SerializeField, Min(0f)] private float detectionRange = 12f;
-        [SerializeField, Min(0f)] private float attackRange = 1.6f;
+        [SerializeField, Min(0f)] private float detectionRange = 14f;
+        [SerializeField, Min(0f)] private float attackRange = 8f;
+        [SerializeField, Min(0f)] private float minimumSafeRange = 3.5f;
+        [SerializeField, Min(0f)] private float targetAimHeight = 1f;
 
         [Header("Movement")]
-        [SerializeField, Min(0f)] private float patrolSpeed = 2f;
-        [SerializeField, Min(0f)] private float chaseSpeed = 3.5f;
+        [SerializeField, Min(0f)] private float patrolSpeed = 1.8f;
+        [SerializeField, Min(0f)] private float chaseSpeed = 3f;
+        [SerializeField, Min(0f)] private float retreatSpeed = 3.25f;
         [SerializeField, Min(0f)] private float rotationSpeed = 12f;
         [SerializeField, Min(0f)] private float patrolPointTolerance = 0.35f;
+        [SerializeField, Min(0.1f)] private float retreatStepDistance = 4f;
 
         [Header("Attack")]
-        [SerializeField, Min(0f)] private float damage = 15f;
-        [SerializeField, Min(0.01f)] private float attackCooldown = 1f;
+        [SerializeField, Min(0f)] private float damage = 10f;
+        [SerializeField, Min(0.01f)] private float attackCooldown = 1.5f;
+        [SerializeField, Min(0.01f)] private float projectileSpeed = 12f;
+        [SerializeField, Min(0.01f)] private float projectileLifetime = 4f;
+        [SerializeField] private LayerMask projectileHitMask = ~0;
 
         [Header("Animator States")]
         [SerializeField] private string idleStateName = "Idle";
         [SerializeField] private string patrolStateName = "Patrol";
         [SerializeField] private string chaseStateName = "Chase";
+        [SerializeField] private string retreatStateName = "Retreat";
         [SerializeField] private string attackStateName = "Attack";
         [SerializeField] private string deathStateName = "Death";
         [SerializeField] private string movementBoolParameter = "";
+        [SerializeField] private string shootTriggerParameter = "";
         [SerializeField, Min(0f)] private float stateTransitionDuration = 0.1f;
 
+        private readonly Collider[] targetHits = new Collider[MaxTargetHits];
         private NavMeshAgent agent;
         private Animator animator;
         private int patrolIndex;
         private float nextAttackTime;
         private EnemyState currentState;
-        private readonly Collider[] targetHits = new Collider[MaxTargetHits];
         private int movementBoolHash;
+        private int shootTriggerHash;
         private bool hasMovementBoolParameter;
+        private bool hasShootTriggerParameter;
 
         public Transform Target => target;
         public bool HasTarget => target != null && IsTargetAlive(target);
         public bool TargetInDetectionRange => AcquireTarget() && SqrDistanceToTarget() <= detectionRange * detectionRange;
         public bool TargetInAttackRange => HasTarget && SqrDistanceToTarget() <= attackRange * attackRange;
+        public bool TargetTooClose => HasTarget && SqrDistanceToTarget() <= minimumSafeRange * minimumSafeRange;
         public bool IsDead { get; private set; }
 
         private void Awake()
@@ -184,6 +199,12 @@ namespace EndlessZ.Enemies
                 return;
             }
 
+            if (TargetTooClose)
+            {
+                ChangeState(EnemyState.Retreat);
+                return;
+            }
+
             if (TargetInAttackRange)
             {
                 ChangeState(EnemyState.Attack);
@@ -192,11 +213,50 @@ namespace EndlessZ.Enemies
 
             if (!AcquireTarget())
             {
-                ChangeState(EnemyState.Patrol);
+                ChangeState(patrolPoints.Length > 0 ? EnemyState.Patrol : EnemyState.Idle);
                 return;
             }
 
             agent.SetDestination(target.position);
+            FaceTarget();
+        }
+
+        public void EnterRetreat()
+        {
+            if (IsDead)
+            {
+                return;
+            }
+
+            agent.isStopped = false;
+            agent.speed = retreatSpeed;
+            SetRetreatDestination();
+        }
+
+        public void UpdateRetreat()
+        {
+            if (IsDead)
+            {
+                return;
+            }
+
+            if (!TargetInDetectionRange)
+            {
+                ChangeState(patrolPoints.Length > 0 ? EnemyState.Patrol : EnemyState.Idle);
+                return;
+            }
+
+            if (!TargetTooClose)
+            {
+                ChangeState(TargetInAttackRange ? EnemyState.Attack : EnemyState.Chase);
+                return;
+            }
+
+            if (!agent.pathPending && agent.remainingDistance <= patrolPointTolerance)
+            {
+                SetRetreatDestination();
+            }
+
             FaceTarget();
         }
 
@@ -225,6 +285,12 @@ namespace EndlessZ.Enemies
                 return;
             }
 
+            if (TargetTooClose)
+            {
+                ChangeState(EnemyState.Retreat);
+                return;
+            }
+
             if (!TargetInAttackRange)
             {
                 ChangeState(EnemyState.Chase);
@@ -232,7 +298,7 @@ namespace EndlessZ.Enemies
             }
 
             FaceTarget();
-            TryAttack();
+            TryShoot();
         }
 
         public void ExitAttack()
@@ -243,37 +309,36 @@ namespace EndlessZ.Enemies
             }
         }
 
-        public void EnterRetreat()
+        private void TryShoot()
         {
-            if (!IsDead)
-            {
-                ChangeState(EnemyState.Chase);
-            }
-        }
-
-        public void UpdateRetreat()
-        {
-        }
-
-        private void TryAttack()
-        {
-            if (Time.time < nextAttackTime)
-            {
-                return;
-            }
-
-            if (!HasTarget)
+            if (Time.time < nextAttackTime || !HasTarget || projectilePrefab == null)
             {
                 return;
             }
 
             nextAttackTime = Time.time + attackCooldown;
+            TriggerShootAnimation();
 
-            IDamageable damageable = target.GetComponentInParent<IDamageable>();
-            if (damageable != null && damageable.IsAlive)
+            Transform originTransform = firePoint != null ? firePoint : transform;
+            Vector3 targetPoint = target.position + Vector3.up * targetAimHeight;
+            Vector3 direction = targetPoint - originTransform.position;
+
+            if (direction.sqrMagnitude <= Mathf.Epsilon)
             {
-                damageable.TakeDamage(damage, gameObject);
+                direction = originTransform.forward;
             }
+
+            direction.Normalize();
+            Quaternion rotation = Quaternion.LookRotation(direction, Vector3.up);
+            GameObject projectileObject = Instantiate(projectilePrefab, originTransform.position, rotation);
+            EnemyProjectile projectile = projectileObject.GetComponent<EnemyProjectile>();
+
+            if (projectile == null)
+            {
+                projectile = projectileObject.AddComponent<EnemyProjectile>();
+            }
+
+            projectile.Initialize(direction, projectileSpeed, damage, projectileLifetime, projectileHitMask, gameObject);
         }
 
         private bool AcquireTarget()
@@ -345,6 +410,28 @@ namespace EndlessZ.Enemies
             agent.SetDestination(patrolPoints[patrolIndex].position);
         }
 
+        private void SetRetreatDestination()
+        {
+            if (!HasTarget)
+            {
+                return;
+            }
+
+            Vector3 awayFromTarget = transform.position - target.position;
+            awayFromTarget.y = 0f;
+
+            if (awayFromTarget.sqrMagnitude <= Mathf.Epsilon)
+            {
+                awayFromTarget = -transform.forward;
+            }
+
+            Vector3 desiredPosition = transform.position + awayFromTarget.normalized * retreatStepDistance;
+            if (NavMesh.SamplePosition(desiredPosition, out NavMeshHit hit, retreatStepDistance, NavMesh.AllAreas))
+            {
+                agent.SetDestination(hit.position);
+            }
+        }
+
         private void FaceTarget()
         {
             if (!HasTarget)
@@ -375,14 +462,15 @@ namespace EndlessZ.Enemies
             {
                 case EnemyState.Patrol:
                     return patrolStateName;
-                case EnemyState.Idle:
-                    return idleStateName;
                 case EnemyState.Chase:
                     return chaseStateName;
+                case EnemyState.Retreat:
+                    return retreatStateName;
                 case EnemyState.Attack:
                     return attackStateName;
                 case EnemyState.Death:
                     return deathStateName;
+                case EnemyState.Idle:
                 default:
                     return idleStateName;
             }
@@ -399,23 +487,48 @@ namespace EndlessZ.Enemies
             animator.SetBool(movementBoolHash, isMoving);
         }
 
+        private void TriggerShootAnimation()
+        {
+            if (hasShootTriggerParameter)
+            {
+                animator.SetTrigger(shootTriggerHash);
+            }
+        }
+
         private void CacheAnimatorParameters()
         {
-            if (animator == null || string.IsNullOrWhiteSpace(movementBoolParameter))
+            hasMovementBoolParameter = false;
+            hasShootTriggerParameter = false;
+
+            if (animator == null)
             {
-                hasMovementBoolParameter = false;
                 return;
             }
 
-            movementBoolHash = Animator.StringToHash(movementBoolParameter);
-            hasMovementBoolParameter = false;
+            if (!string.IsNullOrWhiteSpace(movementBoolParameter))
+            {
+                movementBoolHash = Animator.StringToHash(movementBoolParameter);
+            }
+
+            if (!string.IsNullOrWhiteSpace(shootTriggerParameter))
+            {
+                shootTriggerHash = Animator.StringToHash(shootTriggerParameter);
+            }
 
             foreach (AnimatorControllerParameter parameter in animator.parameters)
             {
-                if (parameter.type == AnimatorControllerParameterType.Bool && parameter.nameHash == movementBoolHash)
+                if (!string.IsNullOrWhiteSpace(movementBoolParameter)
+                    && parameter.type == AnimatorControllerParameterType.Bool
+                    && parameter.nameHash == movementBoolHash)
                 {
                     hasMovementBoolParameter = true;
-                    break;
+                }
+
+                if (!string.IsNullOrWhiteSpace(shootTriggerParameter)
+                    && parameter.type == AnimatorControllerParameterType.Trigger
+                    && parameter.nameHash == shootTriggerHash)
+                {
+                    hasShootTriggerParameter = true;
                 }
             }
         }
