@@ -15,8 +15,9 @@ GameObject:
   - component: {fileID: 6311185703942472323}
   - component: {fileID: 2174245444347555003}
   - component: {fileID: 2900524475133249219}
+  - component: {fileID: 2664194790368831807}
   m_Layer: 6
-  m_Name: Zombie
+  m_Name: Zombie_Fast
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -113,7 +114,7 @@ Animator:
   m_GameObject: {fileID: 616954479602481719}
   m_Enabled: 1
   m_Avatar: {fileID: 9000000, guid: ffdfcb810f2918b4f8fe9f917f07bc78, type: 3}
-  m_Controller: {fileID: 9100000, guid: 0ac366252d6c0d04cb128e206f6b5ed4, type: 2}
+  m_Controller: {fileID: 9100000, guid: db23be8da09c07a459191bf02596429a, type: 2}
   m_CullingMode: 0
   m_UpdateMode: 0
   m_ApplyRootMotion: 0
@@ -174,6 +175,23 @@ MonoBehaviour:
   behavioursToDisable: []
   collidersToDisable: []
   destroyDelay: 3
+--- !u!114 &2664194790368831807
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 616954479602481719}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 95dd3005eb43ec046a44db7719b636c3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  movementSpeedMultiplier: 2
+  healthMultiplier: 1
+  canUseNavMeshLinks: 1
+  reduceHealthWhenFaster: 1
+  minimumHealthMultiplier: 0.35
 --- !u!1001 &8984599294363763106
 PrefabInstance:
   m_ObjectHideFlags: 0

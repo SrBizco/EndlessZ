@@ -56,5 +56,18 @@ namespace EndlessZ.Combat
             currentHealth = Mathf.Min(maxHealth, currentHealth + amount);
             healthChanged?.Invoke(currentHealth, maxHealth);
         }
+
+        public void SetMaxHealthMultiplier(float multiplier)
+        {
+            if (multiplier <= 0f)
+            {
+                return;
+            }
+
+            float healthPercent = maxHealth > 0f ? currentHealth / maxHealth : 1f;
+            maxHealth = Mathf.Max(1f, maxHealth * multiplier);
+            currentHealth = Mathf.Clamp(maxHealth * healthPercent, IsAlive ? 1f : 0f, maxHealth);
+            healthChanged?.Invoke(currentHealth, maxHealth);
+        }
     }
 }

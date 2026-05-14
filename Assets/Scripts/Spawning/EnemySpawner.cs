@@ -8,9 +8,20 @@ namespace EndlessZ.Spawning
     {
         private const int MaxTargetHits = 16;
 
+        [System.Serializable]
+        private sealed class WeightedEnemyPrefab
+        {
+            [SerializeField] private GameObject prefab = null;
+            [SerializeField, Min(0f)] private float weight = 1f;
+
+            public GameObject Prefab => prefab;
+            public float Weight => weight;
+            public bool IsValid => prefab != null && weight > 0f;
+        }
+
         [Header("Prefabs")]
         [SerializeField] private GameObject enemyPrefab = null;
-        [SerializeField] private GameObject[] additionalEnemyPrefabs = new GameObject[0];
+        [SerializeField] private WeightedEnemyPrefab[] weightedEnemyPrefabs = new WeightedEnemyPrefab[0];
 
         [Header("Target")]
         [SerializeField] private LayerMask targetLayers = Physics.DefaultRaycastLayers;
@@ -120,53 +131,55 @@ namespace EndlessZ.Spawning
 
         private bool TryGetRandomEnemyPrefab(out GameObject prefab)
         {
-            int validCount = enemyPrefab != null ? 1 : 0;
+            prefab = null;
+            float totalWeight = 0f;
 
-            for (int i = 0; i < additionalEnemyPrefabs.Length; i++)
+            for (int i = 0; i < weightedEnemyPrefabs.Length; i++)
             {
-                if (additionalEnemyPrefabs[i] != null)
+                WeightedEnemyPrefab entry = weightedEnemyPrefabs[i];
+                if (entry != null && entry.IsValid)
                 {
-                    validCount++;
+                    totalWeight += entry.Weight;
                 }
             }
 
-            if (validCount == 0)
+            if (totalWeight > 0f)
             {
-                prefab = null;
-                return false;
-            }
+                float roll = Random.Range(0f, totalWeight);
 
-            int selectedIndex = Random.Range(0, validCount);
+                for (int i = 0; i < weightedEnemyPrefabs.Length; i++)
+                {
+                    WeightedEnemyPrefab entry = weightedEnemyPrefabs[i];
+                    if (entry == null || !entry.IsValid)
+                    {
+                        continue;
+                    }
+
+                    roll -= entry.Weight;
+                    if (roll <= 0f)
+                    {
+                        prefab = entry.Prefab;
+                        return true;
+                    }
+                }
+
+                for (int i = weightedEnemyPrefabs.Length - 1; i >= 0; i--)
+                {
+                    WeightedEnemyPrefab entry = weightedEnemyPrefabs[i];
+                    if (entry != null && entry.IsValid)
+                    {
+                        prefab = entry.Prefab;
+                        return true;
+                    }
+                }
+            }
 
             if (enemyPrefab != null)
             {
-                if (selectedIndex == 0)
-                {
-                    prefab = enemyPrefab;
-                    return true;
-                }
-
-                selectedIndex--;
+                prefab = enemyPrefab;
+                return true;
             }
 
-            for (int i = 0; i < additionalEnemyPrefabs.Length; i++)
-            {
-                GameObject candidate = additionalEnemyPrefabs[i];
-                if (candidate == null)
-                {
-                    continue;
-                }
-
-                if (selectedIndex == 0)
-                {
-                    prefab = candidate;
-                    return true;
-                }
-
-                selectedIndex--;
-            }
-
-            prefab = null;
             return false;
         }
 

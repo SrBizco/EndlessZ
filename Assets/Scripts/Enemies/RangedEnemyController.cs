@@ -60,6 +60,8 @@ namespace EndlessZ.Enemies
         private int shootTriggerHash;
         private bool hasMovementBoolParameter;
         private bool hasShootTriggerParameter;
+        private EnemyVariantProfile variantProfile;
+        private float speedMultiplier = 1f;
 
         public Transform Target => target;
         public bool HasTarget => target != null && IsTargetAlive(target);
@@ -74,6 +76,11 @@ namespace EndlessZ.Enemies
             animator = GetComponent<Animator>();
             agent.updateRotation = false;
             CacheAnimatorParameters();
+        }
+
+        private void Start()
+        {
+            RefreshVariantProfile();
         }
 
         private void Update()
@@ -144,7 +151,7 @@ namespace EndlessZ.Enemies
             }
 
             agent.isStopped = false;
-            agent.speed = patrolSpeed;
+            agent.speed = patrolSpeed * speedMultiplier;
             SetNextPatrolDestination();
         }
 
@@ -182,7 +189,7 @@ namespace EndlessZ.Enemies
             }
 
             agent.isStopped = false;
-            agent.speed = chaseSpeed;
+            agent.speed = chaseSpeed * speedMultiplier;
             AcquireTarget();
         }
 
@@ -229,7 +236,7 @@ namespace EndlessZ.Enemies
             }
 
             agent.isStopped = false;
-            agent.speed = retreatSpeed;
+            agent.speed = retreatSpeed * speedMultiplier;
             SetRetreatDestination();
         }
 
@@ -531,6 +538,13 @@ namespace EndlessZ.Enemies
                     hasShootTriggerParameter = true;
                 }
             }
+        }
+
+        private void RefreshVariantProfile()
+        {
+            variantProfile = GetComponent<EnemyVariantProfile>();
+            speedMultiplier = variantProfile != null ? variantProfile.MovementSpeedMultiplier : 1f;
+            agent.autoTraverseOffMeshLink = variantProfile != null && variantProfile.CanUseNavMeshLinks;
         }
     }
 }
